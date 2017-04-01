@@ -11,8 +11,7 @@ static int fft_jobs;
 static int mailbox = 0;
 
 
-int prepare(int size, int jobs) {
-    int res;
+int pffft_prepare(int size, int jobs) {
     fft_size = size;
     fft_jobs = jobs;
     if (mailbox == 0) {
@@ -21,17 +20,17 @@ int prepare(int size, int jobs) {
     return gpu_fft_prepare(mailbox, size, GPU_FFT_REV, jobs, &fft);
 }
 
-void compute_fft(double complex** data, int inverse) {
+void pffft_compute(complex* data, int inverse) {
     struct GPU_FFT_COMPLEX *base;
     int length = 1 << fft_size; // In other words, 2 ** fft_size
     int i, j;
     int inverse_factor = inverse? -1 : 1;
-    
+   
     for(j=0; j<fft_jobs; ++j) {
         base = fft->in + j * fft->step;
-        for ( i=0; i<length; ++i) {
-            base[i].re =  creal(data[j][i]);
-            base[i].im = cimag(data[j][i]) * inverse_factor;
+        for (i=0; i<length; ++i) {
+            base[i].re =  creal(data[i]);
+            base[i].im = cimag(data[i]) * inverse_factor;
         }
     }
 
@@ -40,12 +39,12 @@ void compute_fft(double complex** data, int inverse) {
     for(j=0; j<fft_jobs; ++j) {
         base = fft->in + j * fft->step;
         for (i=0; i<length; ++i) {
-            data[i][j] = base[i].re + I * base[i].im * inverse_factor;
+            data[i] = base[i].re + I * base[i].im * inverse_factor;
         }
     }
 }
 
-int release(void) {
+int pffft_release(void) {
     gpu_fft_release(fft);
     if (mailbox > 0) {
         mbox_close(mailbox);
